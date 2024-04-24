@@ -151,7 +151,7 @@ void RangerROSMessenger::SetupSubscription() {
       nh_->advertise<ranger_msgs::BatteryState>("/battery_state", 10);
 
   // subscriber
-  motion_cmd_sub_ = nh_->subscribe<geometry_msgs::Twist>(
+  motion_cmd_sub_ = nh_->subscribe<geometry_msgs::TwistStamped>(
       "/cmd_vel", 5, &RangerROSMessenger::TwistCmdCallback, this);
   light_cmd_subscriber_ = nh_->subscribe<ranger_msgs::RangerLightCmd>(
       "/ranger_light_control", 5, &RangerROSMessenger::LightCmdCallback, this);
@@ -390,7 +390,7 @@ void RangerROSMessenger::UpdateOdometry(double linear, double angular,
 }
 
 void RangerROSMessenger::TwistCmdCallback(
-    const geometry_msgs::Twist::ConstPtr& msg) {
+    const geometry_msgs::TwistStamped::ConstPtr& msg) {
   double steer_cmd;
   double radius;
 
@@ -398,8 +398,8 @@ void RangerROSMessenger::TwistCmdCallback(
   // check for parking mode, only applicable to RangerMiniV2
   if (parking_mode_ && robot_type_ == RangerSubType::kRangerMiniV2) {
     return;
-  } else if (msg->linear.y != 0) {
-    if (msg->linear.x == 0.0 && robot_type_ == RangerSubType::kRangerMiniV1) {
+  } else if (msg->twist.linear.y != 0) {
+    if (msg->twist.linear.x == 0.0 && robot_type_ == RangerSubType::kRangerMiniV1) {
       motion_mode_ = MotionState::MOTION_MODE_SIDE_SLIP;
       robot_->SetMotionMode(MotionState::MOTION_MODE_SIDE_SLIP);
     } else {
@@ -407,7 +407,7 @@ void RangerROSMessenger::TwistCmdCallback(
       robot_->SetMotionMode(MotionState::MOTION_MODE_PARALLEL);
     }
   } else {
-    steer_cmd = CalculateSteeringAngle(*msg, radius);
+    steer_cmd = CalculateSteeringAngle(msg->twist, radius);
     // Use minimum turn radius to switch between dual ackerman and spinning mode
     if (radius < robot_params_.min_turn_radius) {
       motion_mode_ = MotionState::MOTION_MODE_SPINNING;
@@ -427,25 +427,25 @@ void RangerROSMessenger::TwistCmdCallback(
       if (steer_cmd < -robot_params_.max_steer_angle_ackermann) {
         steer_cmd = -robot_params_.max_steer_angle_ackermann;
       }
-      robot_->SetMotionCommand(msg->linear.x, steer_cmd);
+      robot_->SetMotionCommand(msg->twist.linear.x, steer_cmd);
       break;
     }
     case MotionState::MOTION_MODE_PARALLEL: {
-      steer_cmd = atan(msg->linear.y / msg->linear.x);
+      steer_cmd = atan(msg->twist.linear.y / msg->twist.linear.x);
       if (steer_cmd > robot_params_.max_steer_angle_parallel) {
         steer_cmd = robot_params_.max_steer_angle_parallel;
       }
       if (steer_cmd < -robot_params_.max_steer_angle_parallel) {
         steer_cmd = -robot_params_.max_steer_angle_parallel;
       }
-      double vel = msg->linear.x >= 0 ? 1.0 : -1.0;
-      robot_->SetMotionCommand(vel * sqrt(msg->linear.x * msg->linear.x +
-                                          msg->linear.y * msg->linear.y),
+      double vel = msg->twist.linear.x >= 0 ? 1.0 : -1.0;
+      robot_->SetMotionCommand(vel * sqrt(msg->twist.linear.x * msg->twist.linear.x +
+                                          msg->twist.linear.y * msg->twist.linear.y),
                                steer_cmd);
       break;
     }
     case MotionState::MOTION_MODE_SPINNING: {
-      double a_v = msg->angular.z;
+      double a_v = msg->twist.angular.z;
       if (a_v > robot_params_.max_angular_speed) {
         a_v = robot_params_.max_angular_speed;
       }
@@ -456,7 +456,7 @@ void RangerROSMessenger::TwistCmdCallback(
       break;
     }
     case MotionState::MOTION_MODE_SIDE_SLIP: {
-      double l_v = msg->linear.y;
+      double l_v = msg->twist.linear.y;
       if (l_v > robot_params_.max_linear_speed) {
         l_v = robot_params_.max_linear_speed;
       }

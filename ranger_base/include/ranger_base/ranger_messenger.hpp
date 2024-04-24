@@ -21,6 +21,7 @@
 #include <tf2_ros/transform_broadcaster.h>
 
 #include <geometry_msgs/Twist.h>
+#include <geometry_msgs/TwistStamped.h>
 #include <nav_msgs/Odometry.h>
 
 #include <ranger_msgs/SystemState.h>
@@ -61,7 +62,7 @@ class RangerROSMessenger {
   void SetupSubscription();
   void PublishStateToROS();
   void PublishSimStateToROS(double linear, double angular);
-  void TwistCmdCallback(const geometry_msgs::Twist::ConstPtr& msg);
+  void TwistCmdCallback(const geometry_msgs::TwistStamped::ConstPtr& msg);
   void LightCmdCallback(const ranger_msgs::RangerLightCmd::ConstPtr &msg);
   double CalculateSteeringAngle(geometry_msgs::Twist msg, double& radius);
   void UpdateOdometry(double linear, double angular, double angle, double dt);
